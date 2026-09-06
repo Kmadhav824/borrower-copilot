@@ -74,15 +74,16 @@ function affordability(
   const existing = toRange(profile.financial.existingEmis);
   const upcoming = toRange(profile.financial.upcomingMonthlyObligations);
   const reasons: ExplanationMetadata[] = [];
-  if (!income || !expenses || !existing) {
+  if (!income || !expenses || !existing || !upcoming) {
     if (!income) reasons.push(reason("SAFE_INCOME_UNKNOWN", "affordability", "blocking", "SAFE_DEBT_SERVICE_CAP", "A safe borrowing amount cannot be calculated until monthly income is provided.", ["financial.monthlyIncome"]));
     if (!expenses) reasons.push(reason("SAFE_EXPENSES_UNKNOWN", "affordability", "caution", "SAFE_DEBT_SERVICE_CAP", "Household expenses are unknown, so the safe borrowing amount cannot be narrowed.", ["financial.essentialMonthlyExpenses"]));
     if (!existing) reasons.push(reason("SAFE_EXISTING_EMIS_UNKNOWN", "affordability", "caution", "SAFE_DEBT_SERVICE_CAP", "Existing EMI commitments are unknown and are not assumed to be zero.", ["financial.existingEmis"]));
+    if (!upcoming) reasons.push(reason("SAFE_UPCOMING_OBLIGATIONS_UNKNOWN", "affordability", "blocking", "SAFE_DEBT_SERVICE_CAP", "A safe borrowing amount cannot be calculated while upcoming monthly obligations are unknown; they are not assumed to be zero.", ["financial.upcomingMonthlyObligations"]));
     return { result: { safeBorrowing: null, safeEmi: null, recommendedMaximumEmi: null, reasons }, reasons };
   }
   const cap = rules.safeDebtServiceCaps.value[profile.incomeType];
   const bufferPercent = rules.retainedBufferPercent.value[profile.incomeType];
-  const upcomingRange = upcoming ?? range(0, 0);
+  const upcomingRange = upcoming;
   const safeEmiLow = Math.max(0, Math.min(
     income.low * cap - existing.high,
     income.low - expenses.high - existing.high - income.low * bufferPercent - upcomingRange.high

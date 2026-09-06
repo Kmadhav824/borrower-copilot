@@ -69,6 +69,24 @@ test("unknown existing EMI is never treated as zero", () => {
     assert.equal(result.verdict, "needsInformation");
     assert.ok(result.reasons.some((item) => item.id === "SAFE_EXISTING_EMIS_UNKNOWN"));
 });
+test("unknown upcoming obligations cannot increase safe affordability", () => {
+    const borrower = profile({ financial: { ...profile().financial, upcomingMonthlyObligations: unknown() } });
+    const result = assessBorrower({ borrower, request: request(300_000, "personal", "personalLoan"), offer });
+    assert.equal(result.affordability.safeBorrowing, null);
+    assert.equal(result.affordability.safeEmi, null);
+    assert.equal(result.affordability.recommendedMaximumEmi, null);
+    assert.equal(result.stress.passes, null);
+    assert.equal(result.verdict, "needsInformation");
+    assert.notEqual(result.eligibility.likelySanction, null);
+    assert.ok(result.reasons.some((item) => item.id === "SAFE_UPCOMING_OBLIGATIONS_UNKNOWN"));
+});
+test("known upcoming obligations continue to reduce safe affordability", () => {
+    const baseline = assessBorrower({ borrower: profile(), request: request(300_000, "personal", "personalLoan"), offer });
+    const borrower = profile({ financial: { ...profile().financial, upcomingMonthlyObligations: known(30_000) } });
+    const result = assessBorrower({ borrower, request: request(300_000, "personal", "personalLoan"), offer });
+    assert.ok(result.affordability.recommendedMaximumEmi < baseline.affordability.recommendedMaximumEmi);
+    assert.ok(result.affordability.safeBorrowing.high < baseline.affordability.safeBorrowing.high);
+});
 test("unknown mandatory fees return rate-only cost rather than fabricated APR", () => {
     const unknownFeeOffer = { ...offer, processingFee: unknown() };
     const result = assessBorrower({ borrower: profile(), request: request(500_000, "personal", "personalLoan"), offer: unknownFeeOffer });
