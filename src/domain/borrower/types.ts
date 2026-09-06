@@ -30,7 +30,7 @@ export interface LoanRequest {
   readonly purpose: "personal" | "wedding" | "business" | "vehicle" | "emergency" | "other";
   readonly productIntent: ProductType | "unsure";
   readonly preferredTenureMonths: NumericInput;
-  readonly rateType: RateType;
+  readonly rateType: RateType | "unknown";
 }
 
 export interface FinancialInputs {

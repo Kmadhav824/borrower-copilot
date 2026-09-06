@@ -63,6 +63,7 @@ h2 { font-size: 26px; }
 .review-panel { padding-top: clamp(30px, 8vh, 80px); }
 .review-panel h1, .results-content h1 { font-size: clamp(38px, 7vw, 70px); }
 .answer-list { border-top: 1px solid var(--line); margin-top: 34px; }
+.submission-error { background: #fff1ec; border-left: 4px solid var(--coral); color: var(--ink); font-size: 14px; line-height: 1.5; margin-top: 24px; padding: 14px 16px; }
 .answer-row { align-items: center; background: transparent; border: 0; border-bottom: 1px solid var(--line); color: var(--ink); display: flex; justify-content: space-between; padding: 15px 0; text-align: left; width: 100%; }
 .answer-row small, .answer-row strong { display: block; }
 .answer-row small { color: var(--muted); font-size: 12px; margin-bottom: 5px; }
@@ -77,9 +78,57 @@ h2 { font-size: 26px; }
 .metric-card { background: var(--paper); padding: 20px; }
 .metric-card > strong { display: block; font-family: "Space Grotesk", sans-serif; font-size: clamp(22px, 4vw, 31px); margin-top: 12px; }
 .metric-card p, .result-section p { color: var(--muted); font-size: 13px; line-height: 1.5; margin-bottom: 0; }
-.result-section { border-top: 1px solid var(--line); display: flex; gap: 30px; justify-content: space-between; padding: 27px 0; }
-.result-section > div { min-width: 45%; }
-.card-section { display: block; }
+.result-section { border-top: 1px solid var(--line); display: grid; gap: 24px; grid-template-columns: minmax(190px, .8fr) 1.5fr; padding: 32px 0; }
+.result-section-heading h2 { font-size: 27px; }
+.result-section-body { min-width: 0; }
+.comparison-grid { display: grid; gap: 12px; grid-template-columns: repeat(2, 1fr); }
+.result-number { background: var(--paper); border-top: 4px solid var(--ink); padding: 20px; }
+.result-number.safe { border-color: #4e9a70; }
+.result-number.lender { border-color: var(--coral); }
+.result-number > strong { display: block; font-family: "Space Grotesk", sans-serif; font-size: clamp(23px, 4vw, 34px); margin: 12px 0; }
+.result-number p, .emi-highlight p, .confidence-copy, .known-copy, .card-intro { color: var(--muted); font-size: 13px; line-height: 1.55; margin: 0; }
+.compact-grid { margin: 0; }
+.emi-highlight { background: var(--mint); padding: 22px; }
+.emi-highlight > strong { display: block; font-family: "Space Grotesk", sans-serif; font-size: clamp(30px, 5vw, 44px); margin: 10px 0; }
+.tenure-list { margin-top: 24px; }
+.muted-copy { color: var(--muted); font-size: 13px; }
+.tenure-row { align-items: center; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; padding: 12px 0; }
+.tenure-row strong, .tenure-row small { display: block; }
+.tenure-row small { color: var(--muted); font-size: 12px; margin-top: 4px; }
+.pass-label, .caution-label { font-size: 12px; font-weight: 700; }
+.pass-label { color: #4e9a70; }
+.caution-label { color: var(--coral); }
+.stress-result { align-items: baseline; display: flex; gap: 8px; }
+.stress-result strong { font-family: "Space Grotesk", sans-serif; font-size: 29px; }
+.stress-result span { color: var(--muted); font-size: 12px; }
+.result-section-body > p { color: var(--muted); font-size: 13px; line-height: 1.55; }
+.scenario-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 15px; }
+.scenario-tags span { background: var(--mint); color: var(--ink); font-size: 11px; padding: 7px 9px; text-transform: capitalize; }
+.unknown-list { display: grid; gap: 10px; }
+.unknown-list div { border-left: 3px solid var(--coral); padding-left: 12px; }
+.unknown-list strong, .unknown-list small { display: block; }
+.unknown-list strong { font-size: 13px; line-height: 1.45; }
+.unknown-list small { color: var(--muted); font-size: 11px; margin-top: 4px; }
+.negotiation-card { background: var(--ink); color: white; margin: 18px 0 26px; padding: clamp(24px, 5vw, 40px); }
+.negotiation-card .section-label { color: var(--yellow); }
+.negotiation-card h2 { font-size: 31px; }
+.negotiation-card .card-intro { color: #c9d7ce; margin: 15px 0 23px; max-width: 560px; }
+.card-header { align-items: flex-start; display: flex; gap: 20px; justify-content: space-between; }
+.card-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.card-action { background: transparent; border: 1px solid #71938a; color: white; font-size: 12px; padding: 8px 10px; }
+.card-action:hover { background: #28554e; }
+.modelled-label { border-bottom: 1px solid #476d64; color: var(--yellow); font-size: 11px; font-weight: 700; letter-spacing: .1em; margin-bottom: 1px; padding-bottom: 9px; text-transform: uppercase; }
+.negotiation-card .negotiation-grid { margin-top: 0; }
+.negotiation-card .negotiation-grid span { background: #28554e; color: #c9d7ce; }
+.negotiation-card .negotiation-grid strong { color: white; }
+.lender-boundary { border: 1px solid #71938a; display: grid; gap: 6px; margin-top: 20px; padding: 14px; }
+.lender-boundary strong { color: var(--yellow); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+.lender-boundary span { color: #e1ece4; font-size: 13px; line-height: 1.5; }
+.card-columns { display: grid; gap: 20px; grid-template-columns: repeat(2, 1fr); margin-top: 28px; }
+.card-list-title { color: var(--yellow); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.card-list ul { color: #e1ece4; font-size: 13px; line-height: 1.5; margin: 9px 0 0; padding-left: 18px; }
+.card-list li + li { margin-top: 7px; }
+.card-footer { border-top: 1px solid #476d64; color: #c9d7ce; display: flex; font-size: 11px; justify-content: space-between; margin-top: 26px; padding-top: 14px; text-transform: capitalize; }
 .negotiation-grid { display: grid; gap: 1px; grid-template-columns: repeat(2, 1fr); margin-top: 22px; }
 .negotiation-grid span { background: var(--mint); color: var(--muted); font-size: 12px; padding: 14px; }
 .negotiation-grid strong { color: var(--ink); display: block; font-size: 16px; margin-top: 7px; text-transform: capitalize; }
@@ -94,5 +143,23 @@ h2 { font-size: 26px; }
   .question-card h1 { font-size: 35px; }
   .metric-grid { grid-template-columns: 1fr; }
   .result-section { display: block; }
-  .result-section p { margin-top: 14px; }
+  .result-section-body { margin-top: 16px; }
+  .comparison-grid { grid-template-columns: 1fr; }
+  .card-header { display: block; }
+  .card-actions { margin-top: 18px; }
+  .card-columns { grid-template-columns: 1fr; }
+  .card-footer { display: grid; gap: 5px; }
+}
+
+@media print {
+  body { background: white; }
+  body * { visibility: hidden; }
+  #negotiation-card, #negotiation-card * { visibility: visible; }
+  #negotiation-card { background: white; color: #173f3a; left: 0; margin: 0; padding: 0; position: absolute; top: 0; width: 100%; }
+  .negotiation-card .section-label, .modelled-label, .card-list-title, .lender-boundary strong { color: #173f3a; }
+  .negotiation-card .card-intro, .lender-boundary span, .card-list ul, .card-footer { color: #394c45; }
+  .negotiation-card .negotiation-grid span { background: #edf4ef; color: #394c45; }
+  .negotiation-card .negotiation-grid strong { color: #173f3a; }
+  .lender-boundary { border-color: #a7b9ad; }
+  .card-action { display: none; }
 }

@@ -52,11 +52,13 @@ Core questions cover income type, purpose, requested amount, income, essential e
 
 Unknown numeric and boolean answers remain explicit unknown values. Required categorical answers do not get coerced into a domain value; normalization returns a null profile or request until they are resolved.
 
+An undecided repayment term is supported explicitly: `rateType: "unknown"` and unknown tenure reach the assessment engine, which uses the configured tenure comparison while omitting floating-rate stress. Income type and loan purpose remain required routing inputs.
+
 ### Web application
 
 `src/App.tsx` and `src/styles.css` provide a mobile-first flow around the existing application layer. The app includes an introduction screen, one-question-at-a-time questions, progress, unknown answers, back/edit navigation, adaptive branching, review, submission, and results rendering.
 
-Results keep lender sanction separate from safe affordability and show the fair-rate range, EMI ceiling, stress status, confidence, and Negotiation Card summary. The app has no backend or persistence.
+Results keep lender sanction separate from safe affordability and show the fair-rate range, EMI ceiling, stress status, confidence, and a printable/shareable Negotiation Card. The card includes the recommended borrower position, lender-offer boundary, key reasons, negotiation points, unknowns, assumptions, and limitations. The app has no backend or persistence.
 
 ## Verified Behavior
 
@@ -77,12 +79,16 @@ The current test suite covers:
 - High-cost debt changing the assessed rate profile
 - Verified collateral changing product routing and sanction behavior
 - Rendered landing, question, review, and assessment-result screens through Vite
+- Printable/shareable Negotiation Card with lender-offer boundary and negotiation points
+- Undecided repayment terms producing a results assessment
+- Unknown numeric core inputs producing a needs-information result
+- Unknown routing categories remaining blocked rather than coerced
 
 Latest verification:
 
 ```text
 npm test
-18 tests passed
+21 tests passed
 ```
 
 `npm test` runs `tsc -p tsconfig.json` followed by the compiled Node test suite.

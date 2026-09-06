@@ -250,13 +250,9 @@ function isLoanPurpose(value: FlowAnswer | undefined): value is LoanRequest["pur
   return value === "personal" || value === "wedding" || value === "business" || value === "vehicle" || value === "emergency" || value === "other";
 }
 
-function isRateType(value: RateType | "unknown"): value is RateType {
-  return value === "fixed" || value === "floating";
-}
-
-function resolveLoanTerms(value: FlowAnswer | undefined): (LoanTermsAnswer & { readonly rateType: RateType }) | null {
-  if (!isLoanTermsAnswer(value) || !isRateType(value.rateType)) return null;
-  return value as LoanTermsAnswer & { readonly rateType: RateType };
+function resolveLoanTerms(value: FlowAnswer | undefined): LoanTermsAnswer | null {
+  if (!isLoanTermsAnswer(value)) return null;
+  return value;
 }
 
 function createBorrowerProfile(answers: FlowAnswers, incomeType: IncomeType): BorrowerProfile {
@@ -292,7 +288,7 @@ function createBorrowerProfile(answers: FlowAnswers, incomeType: IncomeType): Bo
   };
 }
 
-function createLoanRequest(answers: FlowAnswers, purpose: LoanRequest["purpose"], terms: LoanTermsAnswer & { readonly rateType: RateType }): LoanRequest {
+function createLoanRequest(answers: FlowAnswers, purpose: LoanRequest["purpose"], terms: LoanTermsAnswer): LoanRequest {
   return {
     requestedAmount: knownOrUnknown(answers.requestedAmount),
     purpose,

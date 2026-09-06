@@ -122,6 +122,43 @@ test("unknown answers remain explicit unknown values during normalization", () =
     assert.equal(normalized.borrower.credit.recentBounce, "unknown");
     assert.equal(toAssessmentInput(answers, offer) !== null, true);
 });
+test("undecided loan terms remain unknown and still produce an assessment", () => {
+    const answers = coreAnswers({
+        loanTerms: { rateType: "unknown", preferredTenureMonths: unknown() }
+    });
+    const input = toAssessmentInput(answers, offer);
+    assert.notEqual(input, null);
+    assert.equal(input.request.rateType, "unknown");
+    assert.equal(input.request.preferredTenureMonths.kind, "unknown");
+    const result = assessBorrower(input);
+    assert.notEqual(result, null);
+    assert.equal(result.stress.scenarios.includes("rate"), false);
+    assert.equal(result.tenureOptions.length, 3);
+});
+test("unknown numeric core answers produce a needs-information assessment instead of failing", () => {
+    const answers = coreAnswers({
+        requestedAmount: unknown(),
+        monthlyIncome: unknown(),
+        essentialMonthlyExpenses: unknown(),
+        existingEmis: unknown(),
+        upcomingMonthlyObligations: unknown()
+    });
+    const input = toAssessmentInput(answers, offer);
+    assert.notEqual(input, null);
+    const result = assessBorrower(input);
+    assert.equal(result.verdict, "needsInformation");
+    assert.equal(result.affordability.safeBorrowing, null);
+    assert.equal(result.eligibility.likelySanction, null);
+    assert.equal(result.stress.passes, null);
+});
+test("unknown income type and purpose remain blocked as routing information", () => {
+    const unknownIncome = toAssessmentInput(coreAnswers({ incomeType: "unknown" }), offer);
+    const unknownPurpose = toAssessmentInput(coreAnswers({ purpose: "unknown" }), offer);
+    assert.equal(unknownIncome, null);
+    assert.equal(unknownPurpose, null);
+    assert.equal(normalizeAnswers(coreAnswers({ incomeType: "unknown" })).borrower, null);
+    assert.equal(normalizeAnswers(coreAnswers({ purpose: "unknown" })).request, null);
+});
 test("high-cost debt answer changes the fair-rate assessment", () => {
     const withoutHighCostDebt = toAssessmentInput(coreAnswers({ highCostDebtPresent: false, recentBounce: false }), offer);
     const withHighCostDebt = toAssessmentInput(coreAnswers({ highCostDebtPresent: true, recentBounce: false }), offer);

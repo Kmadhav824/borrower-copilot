@@ -36,6 +36,7 @@ function App() {
   const [questionIndex, setQuestionIndex] = useState(0);
   const [assessment, setAssessment] = useState<AssessmentResult | null>(null);
   const [numericDraft, setNumericDraft] = useState("");
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
 
   const visibleQuestions = getVisibleQuestions(answers);
   const currentQuestion = visibleQuestions[questionIndex] ?? null;
@@ -48,6 +49,7 @@ function App() {
     setQuestionIndex(0);
     setAssessment(null);
     setNumericDraft("");
+    setSubmissionError(null);
     setScreen("questions");
   }
 
@@ -76,18 +78,22 @@ function App() {
   }
 
   function openReview() {
+    setSubmissionError(null);
     setScreen("review");
   }
 
   function submit() {
     const input = toAssessmentInput(answers);
-    if (!input) return;
+    if (!input) {
+      setSubmissionError("Please resolve the required income type and loan purpose before we calculate your assessment. You can choose an answer or edit the relevant row above. A not-decided repayment term is okay.");
+      return;
+    }
     setAssessment(assessBorrower(input));
     setScreen("results");
   }
 
   if (screen === "intro") return <IntroScreen onStart={startAssessment} />;
-  if (screen === "review") return <ReviewScreen answers={answers} questions={visibleQuestions} onBack={() => setScreen("questions")} onEdit={(index) => { setQuestionIndex(index); setScreen("questions"); }} onSubmit={submit} />;
+  if (screen === "review") return <ReviewScreen answers={answers} questions={visibleQuestions} submissionError={submissionError} onBack={() => setScreen("questions")} onEdit={(index) => { setSubmissionError(null); setQuestionIndex(index); setScreen("questions"); }} onSubmit={submit} />;
   if (screen === "results" && assessment) return <ResultsScreen assessment={assessment} onRestart={startAssessment} />;
   if (!currentQuestion) return <EmptyState onRestart={startAssessment} />;
 
@@ -157,13 +163,103 @@ function sameAnswer(left: FlowAnswer, right: FlowAnswer | undefined): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
-function ReviewScreen({ answers, questions, onBack, onEdit, onSubmit }: { readonly answers: FlowAnswers; readonly questions: readonly QuestionDefinition[]; readonly onBack: () => void; readonly onEdit: (index: number) => void; readonly onSubmit: () => void }) {
-  return <main className="app-shell"><header className="topbar"><div className="brand">Borrower <span>Copilot</span></div><span className="privacy-note">Review</span></header><section className="review-panel"><div className="eyebrow">Before we calculate</div><h1>Check your answers.</h1><p className="intro-copy">Unknown answers stay visible and will widen uncertainty rather than being treated as zero.</p><div className="answer-list">{questions.map((question, index) => <button className="answer-row" key={question.id} onClick={() => onEdit(index)}><span><small>{question.text}</small><strong>{labelForAnswer(answers[question.id])}</strong></span><span aria-hidden="true">Edit</span></button>)}</div><div className="flow-actions"><button className="text-button" onClick={onBack}>Back</button><button className="primary-button" onClick={onSubmit}>See my assessment</button></div></section></main>;
+function ReviewScreen({ answers, questions, submissionError, onBack, onEdit, onSubmit }: { readonly answers: FlowAnswers; readonly questions: readonly QuestionDefinition[]; readonly submissionError: string | null; readonly onBack: () => void; readonly onEdit: (index: number) => void; readonly onSubmit: () => void }) {
+  return <main className="app-shell"><header className="topbar"><div className="brand">Borrower <span>Copilot</span></div><span className="privacy-note">Review</span></header><section className="review-panel"><div className="eyebrow">Before we calculate</div><h1>Check your answers.</h1><p className="intro-copy">Unknown answers stay visible and will widen uncertainty rather than being treated as zero.</p>{submissionError ? <div className="submission-error" role="alert">{submissionError}</div> : null}<div className="answer-list">{questions.map((question, index) => <button className="answer-row" key={question.id} onClick={() => onEdit(index)}><span><small>{question.text}</small><strong>{labelForAnswer(answers[question.id])}</strong></span><span aria-hidden="true">Edit</span></button>)}</div><div className="flow-actions"><button className="text-button" onClick={onBack}>Back</button><button className="primary-button" onClick={onSubmit}>See my assessment</button></div></section></main>;
 }
 
 function ResultsScreen({ assessment, onRestart }: { readonly assessment: AssessmentResult; readonly onRestart: () => void }) {
   const verdictLabels = { borrow: "Borrowing may fit", borrowLess: "Consider borrowing less", dontBorrow: "Pause before borrowing", needsInformation: "More information needed" };
-  return <main className="app-shell results-shell"><header className="topbar"><div className="brand">Borrower <span>Copilot</span></div><span className="confidence-chip">{assessment.confidence} confidence</span></header><section className="results-content"><div className="eyebrow">Your borrower view</div><h1>{verdictLabels[assessment.verdict]}</h1><p className="result-lede">This is a decision aid, not a lender approval. Your safe number and a lender's possible number are different things.</p><div className={`verdict-banner ${assessment.verdict}`}><strong>{assessment.reasons.at(-1)?.message}</strong></div><div className="metric-grid"><Metric title="Safe amount" value={formatMoney(assessment.affordability.safeBorrowing)} detail="A conservative amount to use as your ceiling." /><Metric title="Likely lender range" value={formatMoney(assessment.eligibility.likelySanction)} detail="What a lender might consider, not a recommendation." /><Metric title="Recommended max EMI" value={assessment.affordability.recommendedMaximumEmi === null ? "Not available" : money.format(assessment.affordability.recommendedMaximumEmi)} detail="Based on income, expenses, existing EMIs and commitments." /><Metric title="Fair rate range" value={formatRate(assessment.fairRate.low, assessment.fairRate.high)} detail="A negotiation range, not a guaranteed offer." /></div><section className="result-section"><div><div className="section-label">Stress check</div><h2>{assessment.stress.passes === true ? "There is a buffer under stress" : assessment.stress.passes === false ? "The stress case does not pass" : "Stress check needs more information"}</h2></div><p>{assessment.stress.reasons[0]?.message}</p></section><section className="result-section card-section"><div><div className="section-label">Negotiation card</div><h2>Take these numbers to the lender.</h2></div><div className="negotiation-grid"><span>Product<strong>{assessment.negotiationCard.product}</strong></span><span>Suggested tenure<strong>{assessment.negotiationCard.suggestedTenureMonths ? `${assessment.negotiationCard.suggestedTenureMonths} months` : "Not available"}</strong></span><span>All-in cost<strong>{formatMoney(assessment.apr.allInCost)}</strong></span><span>APR<strong>{assessment.apr.apr ? formatRate(assessment.apr.apr.low, assessment.apr.apr.high) : "Rate-only view"}</strong></span></div></section><button className="secondary-button" onClick={onRestart}>Start a new assessment</button></section></main>;
+  const affordabilityReason = assessment.affordability.reasons.find((item) => item.id === "SAFE_EMI_EXPLAINED");
+  const sanctionReason = assessment.eligibility.reasons.find((item) => item.id === "SANCTION_ESTIMATE");
+  const rateReason = assessment.reasons.find((item) => item.output === "rate");
+  const aprReason = assessment.apr.reasons[0];
+  const unknowns = assessment.reasons.filter((item) => item.severity !== "info");
+  const stressTitle = assessment.stress.passes === true ? "There is a buffer under stress" : assessment.stress.passes === false ? "The stress case does not pass" : "Stress check needs more information";
+  const negotiationPoints = buildNegotiationPoints(assessment);
+  const assumptions = buildAssumptions(assessment);
+  const unknownMessages = uniqueMessages(unknowns.map((item) => item.message));
+  return <main className="app-shell results-shell">
+    <header className="topbar"><div className="brand">Borrower <span>Copilot</span></div><span className="confidence-chip">{assessment.confidence} confidence</span></header>
+    <section className="results-content">
+      <div className="eyebrow">Your borrower view</div>
+      <h1>{verdictLabels[assessment.verdict]}</h1>
+      <p className="result-lede">This is a decision aid, not a lender approval. Your safe number and a lender's possible number are different things.</p>
+      <div className={`verdict-banner ${assessment.verdict}`}><div className="section-label">Recommendation</div><strong>{assessment.reasons.at(-1)?.message}</strong></div>
+
+      <ResultSection eyebrow="Two different ceilings" title="What might be approved vs what feels safe">
+        <div className="comparison-grid">
+          <ResultNumber title="Likely lender sanction" value={formatMoney(assessment.eligibility.likelySanction)} explanation={sanctionReason?.message ?? "This estimate uses income, existing EMIs, product route and lender-cap assumptions."} tone="lender" />
+          <ResultNumber title="Borrower-safe amount" value={formatMoney(assessment.affordability.safeBorrowing)} explanation={affordabilityReason?.message ?? "This ceiling protects essential expenses, existing EMIs and a monthly buffer."} tone="safe" />
+        </div>
+      </ResultSection>
+
+      <ResultSection eyebrow="Rate and cost" title="A fair range to negotiate">
+        <div className="metric-grid compact-grid">
+          <Metric title="Fair interest rate" value={formatRate(assessment.fairRate.low, assessment.fairRate.high)} detail={rateReason?.message ?? "This range reflects the available repayment and credit evidence."} />
+          <Metric title="All-in APR" value={assessment.apr.apr ? formatRate(assessment.apr.apr.low, assessment.apr.apr.high) : assessment.apr.status === "rateOnly" ? "Rate-only view" : "Not available"} detail={aprReason?.message ?? "APR uses net disbursal and scheduled repayments."} />
+          <Metric title="All-in borrowing cost" value={formatMoney(assessment.apr.allInCost)} detail="Total repayments minus net amount disbursed, including known fees." />
+        </div>
+      </ResultSection>
+
+      <ResultSection eyebrow="Monthly outflow" title="The EMI ceiling comes first">
+        <div className="emi-highlight"><div className="section-label">Recommended maximum EMI</div><strong>{assessment.affordability.recommendedMaximumEmi === null ? "Not available" : money.format(assessment.affordability.recommendedMaximumEmi)}</strong><p>{affordabilityReason?.message ?? "A safe EMI needs complete income, expense, existing EMI and upcoming-obligation information."}</p></div>
+        <div className="tenure-list"><div className="section-label">Tenure trade-offs</div>{assessment.tenureOptions.length === 0 ? <p className="muted-copy">Tenure comparisons need a safe amount and EMI ceiling.</p> : assessment.tenureOptions.map((option) => <div className="tenure-row" key={option.months}><span><strong>{option.months} months</strong><small>{money.format(option.emi)} / month</small></span><span className={option.passesSafety && option.passesStress ? "pass-label" : "caution-label"}>{option.passesSafety && option.passesStress ? "Fits safety" : "Review"}</span></div>)}</div>
+      </ResultSection>
+
+      <ResultSection eyebrow="Stress scenario" title={stressTitle}>
+        <div className="stress-result"><strong>{assessment.stress.stressedMonthlySurplus ? formatMoney(assessment.stress.stressedMonthlySurplus) : "Not available"}</strong><span>stressed monthly surplus</span></div><p>{assessment.stress.reasons[0]?.message ?? "Stress affordability needs more information."}</p>
+        <div className="scenario-tags">{assessment.stress.scenarios.length === 0 ? <span>Inputs incomplete</span> : assessment.stress.scenarios.map((scenario) => <span key={scenario}>{scenario} stress</span>)}</div>
+      </ResultSection>
+
+      <ResultSection eyebrow="Confidence and unknowns" title={`${assessment.confidence} confidence in this assessment`}>
+        <p className="confidence-copy">Confidence reflects how complete the evidence is. It is not a credit score and does not mean approval.</p>
+        {unknowns.length === 0 ? <p className="known-copy">No caution or blocking information was raised by the assessment.</p> : <div className="unknown-list">{unknowns.map((item) => <div key={item.id}><strong>{item.message}</strong><small>{item.inputReferences.join(" · ")}</small></div>)}</div>}
+      </ResultSection>
+
+      <section className="negotiation-card" id="negotiation-card"><div className="card-header"><div><div className="section-label">Negotiation card</div><h2>Take these numbers to the lender.</h2></div><div className="card-actions"><button className="card-action" onClick={() => window.print()}>Print / PDF</button><button className="card-action" onClick={() => shareNegotiationCard(assessment)}>Share</button></div></div><p className="card-intro">A concise borrower brief. Values marked modelled are estimates from your answers, not lender offers.</p><div className="modelled-label">Modelled borrower position</div><div className="negotiation-grid"><span>Product<strong>{assessment.negotiationCard.product}</strong></span><span>Recommended amount<strong>{formatMoney(assessment.negotiationCard.safeBorrowing)}</strong></span><span>Safe EMI ceiling<strong>{assessment.negotiationCard.recommendedMaximumEmi === null ? "Not available" : money.format(assessment.negotiationCard.recommendedMaximumEmi)}</strong></span><span>Fair rate range<strong>{formatRate(assessment.negotiationCard.fairRate.low, assessment.negotiationCard.fairRate.high)}</strong></span><span>All-in cost<strong>{formatMoney(assessment.apr.allInCost)}</strong></span><span>APR<strong>{assessment.apr.apr ? formatRate(assessment.apr.apr.low, assessment.apr.apr.high) : "Rate-only view"}</strong></span><span>Preferred tenure<strong>{assessment.negotiationCard.suggestedTenureMonths ? `${assessment.negotiationCard.suggestedTenureMonths} months` : "Not available"}</strong></span><span>Stress result<strong>{assessment.stress.passes === true ? "Passes" : assessment.stress.passes === false ? "Does not pass" : "Unknown"}</strong></span></div><div className="lender-boundary"><strong>Lender offer to confirm</strong><span>Ask the lender to provide the sanctioned amount, final rate, fees, APR, EMI, tenure, and any insurance or third-party charges in writing.</span></div><div className="card-columns"><CardList title="Key reasons" items={assessment.negotiationCard.keyReasons.slice(0, 4).map((item) => item.message)} /><CardList title="Ask for / negotiate" items={negotiationPoints} /><CardList title="Unknowns and cautions" items={unknownMessages.length > 0 ? unknownMessages : ["No additional caution was raised by the assessment."]} /><CardList title="Assumptions and limitations" items={assumptions} /></div><footer className="card-footer"><span>{assessment.confidence} confidence</span><span>Borrower decision aid, not lender approval</span></footer></section>
+      <button className="secondary-button" onClick={onRestart}>Start a new assessment</button>
+    </section>
+  </main>;
+}
+
+function buildNegotiationPoints(assessment: AssessmentResult): readonly string[] {
+  const points = ["Keep the new EMI at or below the recommended safe ceiling."];
+  if (assessment.fairRate.low > 0) points.push(`Ask whether the lender can offer a rate within ${formatRate(assessment.fairRate.low, assessment.fairRate.high)}.`);
+  if (assessment.apr.status !== "estimated") points.push("Request the complete fee schedule before comparing APR or total cost.");
+  if (assessment.negotiationCard.suggestedTenureMonths) points.push(`Compare the ${assessment.negotiationCard.suggestedTenureMonths}-month option against shorter tenures before accepting a lower EMI.`);
+  if (assessment.eligibility.likelySanction && assessment.affordability.safeBorrowing) points.push("Do not treat the lender's possible sanction range as a safe borrowing recommendation.");
+  return points;
+}
+
+function buildAssumptions(assessment: AssessmentResult): readonly string[] {
+  const source = assessment.fairRate.sourceType === "market_observation" ? "The rate range uses a market observation and is not a lender quote." : "The rate range includes model assumptions and is not a lender quote.";
+  const apr = assessment.apr.status === "estimated" ? "APR includes the known fees supplied to the assessment." : "APR is not estimated because complete lender fee information was not supplied.";
+  return [source, apr, "The safe amount preserves the configured borrower-protection buffer and is not an approval prediction."];
+}
+
+function uniqueMessages(messages: readonly string[]): readonly string[] {
+  return [...new Set(messages)];
+}
+
+function shareNegotiationCard(assessment: AssessmentResult): void {
+  const text = `Borrower Copilot negotiation card\nSafe amount: ${formatMoney(assessment.negotiationCard.safeBorrowing)}\nSafe EMI ceiling: ${assessment.negotiationCard.recommendedMaximumEmi === null ? "Not available" : money.format(assessment.negotiationCard.recommendedMaximumEmi)}\nFair rate: ${formatRate(assessment.negotiationCard.fairRate.low, assessment.negotiationCard.fairRate.high)}\nConfidence: ${assessment.confidence}`;
+  if (navigator.share) {
+    void navigator.share({ title: "Borrower Copilot negotiation card", text });
+  } else if (navigator.clipboard) {
+    void navigator.clipboard.writeText(text);
+  }
+}
+
+function CardList({ title, items }: { readonly title: string; readonly items: readonly string[] }) {
+  return <div className="card-list"><div className="card-list-title">{title}</div><ul>{items.map((item, index) => <li key={`${title}-${index}`}>{item}</li>)}</ul></div>;
+}
+
+function ResultSection({ eyebrow, title, children }: { readonly eyebrow: string; readonly title: string; readonly children: React.ReactNode }) {
+  return <section className="result-section"><div className="result-section-heading"><div className="section-label">{eyebrow}</div><h2>{title}</h2></div><div className="result-section-body">{children}</div></section>;
+}
+
+function ResultNumber({ title, value, explanation, tone }: { readonly title: string; readonly value: string; readonly explanation: string; readonly tone: "lender" | "safe" }) {
+  return <article className={`result-number ${tone}`}><div className="section-label">{title}</div><strong>{value}</strong><p>{explanation}</p></article>;
 }
 
 function Metric({ title, value, detail }: { readonly title: string; readonly value: string; readonly detail: string }) {

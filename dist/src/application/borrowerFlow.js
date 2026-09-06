@@ -164,11 +164,8 @@ function isLoanTermsAnswer(value) {
 function isLoanPurpose(value) {
     return value === "personal" || value === "wedding" || value === "business" || value === "vehicle" || value === "emergency" || value === "other";
 }
-function isRateType(value) {
-    return value === "fixed" || value === "floating";
-}
 function resolveLoanTerms(value) {
-    if (!isLoanTermsAnswer(value) || !isRateType(value.rateType))
+    if (!isLoanTermsAnswer(value))
         return null;
     return value;
 }
