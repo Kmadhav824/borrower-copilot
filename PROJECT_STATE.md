@@ -2,7 +2,7 @@
 
 ## Snapshot
 
-This repository currently contains the deterministic TypeScript financial-assessment core and a React-independent adaptive question-flow/profile-normalization layer for Borrower Copilot. It does not yet contain a web UI or local run documentation.
+This repository currently contains the deterministic TypeScript financial-assessment core, a React-independent adaptive question-flow/profile-normalization layer, and a minimal React/Vite web application for Borrower Copilot. Local run documentation is still pending.
 
 The product goal is a borrower-first assessment for Indian borrowers that distinguishes likely lender sanction from safe borrower affordability and ends with an explainable Negotiation Card.
 
@@ -52,6 +52,12 @@ Core questions cover income type, purpose, requested amount, income, essential e
 
 Unknown numeric and boolean answers remain explicit unknown values. Required categorical answers do not get coerced into a domain value; normalization returns a null profile or request until they are resolved.
 
+### Web application
+
+`src/App.tsx` and `src/styles.css` provide a mobile-first flow around the existing application layer. The app includes an introduction screen, one-question-at-a-time questions, progress, unknown answers, back/edit navigation, adaptive branching, review, submission, and results rendering.
+
+Results keep lender sanction separate from safe affordability and show the fair-rate range, EMI ceiling, stress status, confidence, and Negotiation Card summary. The app has no backend or persistence.
+
 ## Verified Behavior
 
 The current test suite covers:
@@ -70,6 +76,7 @@ The current test suite covers:
 - Unknown answers remaining unknown during normalization
 - High-cost debt changing the assessed rate profile
 - Verified collateral changing product routing and sanction behavior
+- Rendered landing, question, review, and assessment-result screens through Vite
 
 Latest verification:
 
@@ -85,9 +92,8 @@ npm test
 The following assignment requirements remain open:
 
 - React/Vite web application and mobile-first user experience
-- React UI for the adaptive question flow
-- Progress, answer correction, and input explanations in the UI
-- UI rendering for all four outputs and the Negotiation Card
+- Browser-level coverage beyond the manual smoke test
+- Detailed answer correction and output explanations in the UI
 - Full persona run-throughs through a user-facing application
 - `RULES.md` documenting each meaningful rule, rationale, source, and limitation
 - `README.md` with setup and run instructions under five minutes
@@ -98,9 +104,8 @@ The current repository has no backend, database, authentication, integrations, o
 ## Recommended Next Work
 
 1. Document the configured rules and assumptions in `RULES.md`.
-2. Add a minimal React/Vite shell around the question-flow layer and `assessBorrower()` without moving financial rules into components.
-3. Render the assessment results and Negotiation Card with clear range, confidence, and uncertainty explanations.
-4. Add README setup instructions and browser-level tests for Priya, Ravi, and Anita.
+2. Add README setup instructions and browser-level tests for Priya, Ravi, and Anita.
+3. Expand result explanations and Negotiation Card details as the assignment requires.
 
 ## Guardrails
 

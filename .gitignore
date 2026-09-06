@@ -1,0 +1,10 @@
+node_modules/
+web-dist/
+dist/assets/
+dist/index.html
+dist/src/App.d.ts
+dist/src/App.js
+dist/src/main.d.ts
+dist/src/main.js
+dist/vite.config.d.ts
+dist/vite.config.js
