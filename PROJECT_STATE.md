@@ -93,7 +93,7 @@ Latest verification:
 
 ```text
 npm test
-21 tests passed
+24 tests passed
 ```
 
 `npm test` runs `tsc -p tsconfig.json` followed by the compiled Node test suite.
@@ -102,10 +102,8 @@ npm test
 
 The following assignment requirements remain open:
 
-- React/Vite web application and mobile-first user experience
-- Browser-level coverage beyond the manual smoke test
-- Detailed answer correction and output explanations in the UI
-- Full persona run-throughs through a user-facing application
+- Automated browser-level coverage beyond manual smoke tests
+- Complete persona presets or reproducible browser fixtures for Priya, Ravi, and Anita
 - `RULES.md` documenting each meaningful rule, rationale, source, and limitation
 - `README.md` with setup and run instructions under five minutes
 - Browser-level flow verification

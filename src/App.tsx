@@ -61,7 +61,7 @@ function App() {
     if (!currentQuestion) return;
     const nextAnswers = { ...answers, [currentQuestion.id]: answer };
     setAnswers(nextAnswers);
-    if (currentQuestion.id === "creditProfile" && typeof answer === "object" && answer !== null && "status" in answer && answer.status === "known") return;
+    if (currentQuestion.id === "creditProfile" && typeof answer === "object" && answer !== null && "status" in answer && answer.status === "known" && answer.score.kind === "unknown") return;
     const nextVisibleQuestions = getVisibleQuestions(nextAnswers);
     const nextIndex = nextVisibleQuestions.findIndex((question, index) => index > questionIndex && nextAnswers[question.id] === undefined);
     if (nextIndex >= 0) setQuestionIndex(nextIndex);
@@ -129,7 +129,7 @@ function App() {
         <QuestionCard question={currentQuestion} value={answers[currentQuestion.id]} numericDraft={numericDraft} numericHighDraft={numericHighDraft} creditScoreDraft={creditScoreDraft} onNumericDraftChange={setNumericDraft} onNumericHighDraftChange={setNumericHighDraft} onCreditScoreDraftChange={setCreditScoreDraft} onAnswer={saveAnswer} />
         <div className="flow-actions">
           <button className="text-button" onClick={goBack}>Back</button>
-          {completed ? <button className="primary-button" onClick={openReview}>Review answers</button> : nextQuestion && answers[currentQuestion.id] !== undefined ? <button className="primary-button" onClick={() => setQuestionIndex((current) => Math.min(current + 1, visibleQuestions.length - 1))}>Continue</button> : null}
+          {completed ? <button className="primary-button" onClick={openReview}>Review answers</button> : nextQuestion && answers[currentQuestion.id] !== undefined && currentQuestion.inputType !== "money" && currentQuestion.inputType !== "range" && currentQuestion.inputType !== "percentage" && currentQuestion.id !== "creditProfile" ? <button className="primary-button" onClick={() => setQuestionIndex((current) => Math.min(current + 1, visibleQuestions.length - 1))}>Continue</button> : null}
           {!completed && (((currentQuestion.inputType === "money" || currentQuestion.inputType === "range" || currentQuestion.inputType === "percentage") && numericDraft.trim() !== "") || (currentQuestion.id === "creditProfile" && creditScoreDraft.trim() !== "")) ? <button className="primary-button" onClick={commitCurrentAnswer}>Continue</button> : null}
         </div>
       </section>
@@ -265,12 +265,41 @@ function uniqueMessages(messages: readonly string[]): readonly string[] {
   return [...new Set(messages)];
 }
 
-function shareNegotiationCard(assessment: AssessmentResult): void {
+async function shareNegotiationCard(assessment: AssessmentResult): Promise<"success" | "cancelled" | "error"> {
   const text = `Borrower Copilot negotiation card\nSafe amount: ${formatMoney(assessment.negotiationCard.safeBorrowing)}\nSafe EMI ceiling: ${assessment.negotiationCard.recommendedMaximumEmi === null ? "Not available" : money.format(assessment.negotiationCard.recommendedMaximumEmi)}\nFair rate: ${formatRate(assessment.negotiationCard.fairRate.low, assessment.negotiationCard.fairRate.high)}\nConfidence: ${assessment.confidence}`;
   if (navigator.share) {
-    void navigator.share({ title: "Borrower Copilot negotiation card", text });
-  } else if (navigator.clipboard) {
-    void navigator.clipboard.writeText(text);
+    try {
+      await navigator.share({ title: "Borrower Copilot negotiation card", text });
+      window.alert("Negotiation card shared.");
+      return "success";
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return "cancelled";
+    }
+  }
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      window.alert("Negotiation card copied to clipboard.");
+      return "success";
+    }
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.select();
+    const copied = document.execCommand("copy");
+    textarea.remove();
+    if (copied) {
+      window.alert("Negotiation card copied to clipboard.");
+      return "success";
+    }
+    window.alert("Sharing is unavailable. Use Print / PDF instead.");
+    return "error";
+  } catch {
+    window.alert("Sharing is unavailable. Use Print / PDF instead.");
+    return "error";
   }
 }
 
