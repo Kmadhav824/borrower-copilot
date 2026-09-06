@@ -1,7 +1,7 @@
 import { toRange } from "../calculations/inputs.js";
 import type { AssessmentInput } from "../domain/borrower/engine.js";
 import type {
-  BorrowerProfile, CreditScoreStatus, IncomeType, LoanRequest, NumericInput, ProductType, RateType
+  BorrowerProfile, CreditScoreStatus, IncomeType, LoanOfferInputs, LoanRequest, NumericInput, ProductType, RateType
 } from "../domain/borrower/types.js";
 
 export type QuestionId =
@@ -21,7 +21,12 @@ export type QuestionId =
   | "collateralType"
   | "collateralValue"
   | "collateralOwnershipVerified"
-  | "collateralUnencumbered";
+  | "collateralUnencumbered"
+  | "offerAvailable"
+  | "nominalAnnualRate"
+  | "processingFee"
+  | "lenderCollectedThirdPartyCharges"
+  | "applicableKnownTaxes";
 
 export type FlowAnswer =
   | NumericInput
@@ -31,6 +36,8 @@ export type FlowAnswer =
   | "property"
   | "gold"
   | "none"
+  | "yes"
+  | "no"
   | "unknown"
   | LoanRequest["purpose"]
   | CreditScoreAnswer
@@ -49,7 +56,7 @@ export interface LoanTermsAnswer {
 
 export type FlowAnswers = Partial<Record<QuestionId, FlowAnswer>>;
 
-export type QuestionInputType = "select" | "money" | "range" | "boolean" | "composite";
+export type QuestionInputType = "select" | "money" | "range" | "percentage" | "boolean" | "composite";
 export type QuestionRequiredness = "core" | "adaptive";
 export type FlowImpact = "routing" | "eligibility" | "affordability" | "rate" | "emi" | "stress" | "verdict" | "confidence" | "apr" | "negotiationCard";
 
@@ -93,6 +100,10 @@ function businessCollateralIsRelevant(answers: FlowAnswers): boolean {
 
 function collateralDetailsAreRelevant(answers: FlowAnswers): boolean {
   return businessCollateralIsRelevant(answers) && (answers.collateralType === "property" || answers.collateralType === "gold");
+}
+
+function offerIsAvailable(answers: FlowAnswers): boolean {
+  return answers.offerAvailable === "yes";
 }
 
 const coreVisible = (): boolean => true;
@@ -194,6 +205,32 @@ export const QUESTION_DEFINITIONS: readonly QuestionDefinition[] = [
     options: [{ value: true, label: "Yes" }, { value: false, label: "No" }, { value: "unknown", label: "I do not know" }],
     visibleWhen: collateralDetailsAreRelevant, targetFields: ["borrower.collateral.unencumbered"], impacts: ["routing", "eligibility", "confidence"],
     whyWeAsk: "A secured route requires the collateral to be available and unencumbered."
+  },
+  {
+    id: "offerAvailable", text: "Do you already have a lender offer to compare?", inputType: "select", requiredness: "adaptive",
+    options: [{ value: "yes", label: "Yes, I have offer details" }, { value: "no", label: "No offer yet" }, { value: "unknown", label: "I am not sure" }],
+    visibleWhen: coreVisible, targetFields: ["offer"], impacts: ["apr", "confidence", "negotiationCard"],
+    whyWeAsk: "A lender's actual fees and rate are needed to estimate all-in APR; without them, we show a rate-only view."
+  },
+  {
+    id: "nominalAnnualRate", text: "What annual interest rate did the lender offer?", inputType: "percentage", requiredness: "adaptive",
+    visibleWhen: offerIsAvailable, targetFields: ["offer.nominalAnnualRate"], impacts: ["apr", "negotiationCard"],
+    whyWeAsk: "The offered rate lets us compare the lender's quote with the modelled fair-rate range."
+  },
+  {
+    id: "processingFee", text: "What processing fee is shown in the offer?", inputType: "money", requiredness: "adaptive",
+    visibleWhen: offerIsAvailable, targetFields: ["offer.processingFee"], impacts: ["apr", "confidence", "negotiationCard"],
+    whyWeAsk: "Upfront fees reduce net disbursal and can increase the all-in APR."
+  },
+  {
+    id: "lenderCollectedThirdPartyCharges", text: "What lender-collected third-party charges are listed?", inputType: "money", requiredness: "adaptive",
+    visibleWhen: offerIsAvailable, targetFields: ["offer.lenderCollectedThirdPartyCharges"], impacts: ["apr", "confidence", "negotiationCard"],
+    whyWeAsk: "Known lender-collected charges belong in the all-in cost comparison."
+  },
+  {
+    id: "applicableKnownTaxes", text: "What applicable taxes or statutory charges are listed?", inputType: "money", requiredness: "adaptive",
+    visibleWhen: offerIsAvailable, targetFields: ["offer.applicableKnownTaxes"], impacts: ["apr", "confidence", "negotiationCard"],
+    whyWeAsk: "Known taxes and statutory charges affect the amount actually disbursed."
   }
 ];
 
@@ -208,6 +245,7 @@ export function getNextQuestion(answers: FlowAnswers): QuestionDefinition | null
 export interface NormalizedBorrowerInput {
   readonly borrower: BorrowerProfile | null;
   readonly request: LoanRequest | null;
+  readonly offer: LoanOfferInputs | null;
   readonly missingCore: readonly QuestionId[];
 }
 
@@ -225,13 +263,14 @@ export function normalizeAnswers(answers: FlowAnswers): NormalizedBorrowerInput 
   const request = isLoanPurpose(purpose) && resolvedTerms
     ? createLoanRequest(answers, purpose, resolvedTerms)
     : null;
-  return { borrower, request, missingCore };
+  return { borrower, request, offer: createLoanOffer(answers), missingCore };
 }
 
 export function toAssessmentInput(answers: FlowAnswers, offer?: AssessmentInput["offer"]): AssessmentInput | null {
   const normalized = normalizeAnswers(answers);
   if (!normalized.borrower || !normalized.request) return null;
-  return { borrower: normalized.borrower, request: normalized.request, ...(offer ? { offer } : {}) };
+  const normalizedOffer = normalized.offer ?? offer;
+  return { borrower: normalized.borrower, request: normalized.request, ...(normalizedOffer ? { offer: normalizedOffer } : {}) };
 }
 
 function isNumericInput(value: FlowAnswer | undefined): value is NumericInput {
@@ -248,6 +287,10 @@ function isLoanTermsAnswer(value: FlowAnswer | undefined): value is LoanTermsAns
 
 function isLoanPurpose(value: FlowAnswer | undefined): value is LoanRequest["purpose"] {
   return value === "personal" || value === "wedding" || value === "business" || value === "vehicle" || value === "emergency" || value === "other";
+}
+
+function isOfferAvailability(value: FlowAnswer | undefined): value is "yes" | "no" | "unknown" {
+  return value === "yes" || value === "no" || value === "unknown";
 }
 
 function resolveLoanTerms(value: FlowAnswer | undefined): LoanTermsAnswer | null {
@@ -295,5 +338,15 @@ function createLoanRequest(answers: FlowAnswers, purpose: LoanRequest["purpose"]
     productIntent: "unsure",
     preferredTenureMonths: terms.preferredTenureMonths,
     rateType: terms.rateType
+  };
+}
+
+function createLoanOffer(answers: FlowAnswers): LoanOfferInputs | null {
+  if (!isOfferAvailability(answers.offerAvailable) || answers.offerAvailable !== "yes") return null;
+  return {
+    nominalAnnualRate: knownOrUnknown(answers.nominalAnnualRate),
+    processingFee: knownOrUnknown(answers.processingFee),
+    lenderCollectedThirdPartyCharges: knownOrUnknown(answers.lenderCollectedThirdPartyCharges),
+    applicableKnownTaxes: knownOrUnknown(answers.applicableKnownTaxes)
   };
 }

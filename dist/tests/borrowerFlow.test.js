@@ -122,6 +122,50 @@ test("unknown answers remain explicit unknown values during normalization", () =
     assert.equal(normalized.borrower.credit.recentBounce, "unknown");
     assert.equal(toAssessmentInput(answers, offer) !== null, true);
 });
+test("range and credit-score answers survive normalization without collapsing", () => {
+    const answers = coreAnswers({
+        monthlyIncome: { kind: "range", low: 40_000, high: 80_000 },
+        creditProfile: { status: "known", score: known(780) }
+    });
+    const normalized = normalizeAnswers(answers);
+    const income = normalized.borrower.financial.monthlyIncome;
+    assert.equal(income.kind, "range");
+    assert.equal(income.low, 40_000);
+    assert.equal(income.high, 80_000);
+    assert.equal(normalized.borrower.credit.scoreStatus, "known");
+    const score = normalized.borrower.credit.score;
+    assert.equal(score.kind, "known");
+    assert.equal(score.value, 780);
+});
+test("lender offer answers normalize into APR inputs", () => {
+    const answers = coreAnswers({
+        offerAvailable: "yes",
+        nominalAnnualRate: known(0.12),
+        processingFee: known(6_500),
+        lenderCollectedThirdPartyCharges: known(0),
+        applicableKnownTaxes: known(0)
+    });
+    const input = toAssessmentInput(answers);
+    assert.notEqual(input, null);
+    assert.notEqual(input.offer, undefined);
+    const result = assessBorrower(input);
+    assert.equal(result.apr.status, "estimated");
+    assert.ok(result.apr.apr.low > 0.12);
+});
+test("unknown lender offer fees preserve a rate-only APR result", () => {
+    const answers = coreAnswers({
+        offerAvailable: "yes",
+        nominalAnnualRate: known(0.12),
+        processingFee: unknown(),
+        lenderCollectedThirdPartyCharges: known(0),
+        applicableKnownTaxes: known(0)
+    });
+    const input = toAssessmentInput(answers);
+    assert.notEqual(input, null);
+    const result = assessBorrower(input);
+    assert.equal(result.apr.status, "rateOnly");
+    assert.equal(result.apr.apr, null);
+});
 test("undecided loan terms remain unknown and still produce an assessment", () => {
     const answers = coreAnswers({
         loanTerms: { rateType: "unknown", preferredTenureMonths: unknown() }

@@ -1,7 +1,7 @@
 import type { AssessmentInput } from "../domain/borrower/engine.js";
-import type { BorrowerProfile, CreditScoreStatus, IncomeType, LoanRequest, NumericInput, RateType } from "../domain/borrower/types.js";
-export type QuestionId = "incomeType" | "purpose" | "requestedAmount" | "monthlyIncome" | "essentialMonthlyExpenses" | "existingEmis" | "upcomingMonthlyObligations" | "incomeStability" | "creditProfile" | "loanTerms" | "coApplicantMonthlyIncome" | "highCostDebtPresent" | "recentBounce" | "collateralType" | "collateralValue" | "collateralOwnershipVerified" | "collateralUnencumbered";
-export type FlowAnswer = NumericInput | IncomeType | "stable" | "variable" | "property" | "gold" | "none" | "unknown" | LoanRequest["purpose"] | CreditScoreAnswer | LoanTermsAnswer | boolean;
+import type { BorrowerProfile, CreditScoreStatus, IncomeType, LoanOfferInputs, LoanRequest, NumericInput, RateType } from "../domain/borrower/types.js";
+export type QuestionId = "incomeType" | "purpose" | "requestedAmount" | "monthlyIncome" | "essentialMonthlyExpenses" | "existingEmis" | "upcomingMonthlyObligations" | "incomeStability" | "creditProfile" | "loanTerms" | "coApplicantMonthlyIncome" | "highCostDebtPresent" | "recentBounce" | "collateralType" | "collateralValue" | "collateralOwnershipVerified" | "collateralUnencumbered" | "offerAvailable" | "nominalAnnualRate" | "processingFee" | "lenderCollectedThirdPartyCharges" | "applicableKnownTaxes";
+export type FlowAnswer = NumericInput | IncomeType | "stable" | "variable" | "property" | "gold" | "none" | "yes" | "no" | "unknown" | LoanRequest["purpose"] | CreditScoreAnswer | LoanTermsAnswer | boolean;
 export interface CreditScoreAnswer {
     readonly status: CreditScoreStatus;
     readonly score: NumericInput;
@@ -11,7 +11,7 @@ export interface LoanTermsAnswer {
     readonly preferredTenureMonths: NumericInput;
 }
 export type FlowAnswers = Partial<Record<QuestionId, FlowAnswer>>;
-export type QuestionInputType = "select" | "money" | "range" | "boolean" | "composite";
+export type QuestionInputType = "select" | "money" | "range" | "percentage" | "boolean" | "composite";
 export type QuestionRequiredness = "core" | "adaptive";
 export type FlowImpact = "routing" | "eligibility" | "affordability" | "rate" | "emi" | "stress" | "verdict" | "confidence" | "apr" | "negotiationCard";
 export interface QuestionOption {
@@ -35,6 +35,7 @@ export declare function getNextQuestion(answers: FlowAnswers): QuestionDefinitio
 export interface NormalizedBorrowerInput {
     readonly borrower: BorrowerProfile | null;
     readonly request: LoanRequest | null;
+    readonly offer: LoanOfferInputs | null;
     readonly missingCore: readonly QuestionId[];
 }
 export declare function normalizeAnswers(answers: FlowAnswers): NormalizedBorrowerInput;

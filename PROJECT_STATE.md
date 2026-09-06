@@ -60,6 +60,8 @@ An undecided repayment term is supported explicitly: `rateType: "unknown"` and u
 
 Results keep lender sanction separate from safe affordability and show the fair-rate range, EMI ceiling, stress status, confidence, and a printable/shareable Negotiation Card. The card includes the recommended borrower position, lender-offer boundary, key reasons, negotiation points, unknowns, assumptions, and limitations. The app has no backend or persistence.
 
+The questionnaire now supports two-ended numeric ranges with an optional maximum and collects a numeric credit score when the borrower says they know it. Adaptive branch answers advance to the next unanswered question after visibility changes. An optional lender-offer branch collects the offered rate and known fees/taxes into the existing APR input contract; borrowers can skip it, and unknown fee values remain rate-only.
+
 ## Verified Behavior
 
 The current test suite covers:
@@ -80,6 +82,9 @@ The current test suite covers:
 - Verified collateral changing product routing and sanction behavior
 - Rendered landing, question, review, and assessment-result screens through Vite
 - Printable/shareable Negotiation Card with lender-offer boundary and negotiation points
+- Numeric income/expense ranges and numeric credit-score capture in the questionnaire
+- Adaptive branch navigation after newly visible follow-up questions
+- Optional lender-offer inputs producing estimated APR when complete
 - Undecided repayment terms producing a results assessment
 - Unknown numeric core inputs producing a needs-information result
 - Unknown routing categories remaining blocked rather than coerced

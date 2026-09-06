@@ -36,6 +36,8 @@ function App() {
   const [questionIndex, setQuestionIndex] = useState(0);
   const [assessment, setAssessment] = useState<AssessmentResult | null>(null);
   const [numericDraft, setNumericDraft] = useState("");
+  const [numericHighDraft, setNumericHighDraft] = useState("");
+  const [creditScoreDraft, setCreditScoreDraft] = useState("");
   const [submissionError, setSubmissionError] = useState<string | null>(null);
 
   const visibleQuestions = getVisibleQuestions(answers);
@@ -49,22 +51,37 @@ function App() {
     setQuestionIndex(0);
     setAssessment(null);
     setNumericDraft("");
+    setNumericHighDraft("");
+    setCreditScoreDraft("");
     setSubmissionError(null);
     setScreen("questions");
   }
 
   function saveAnswer(answer: FlowAnswer) {
     if (!currentQuestion) return;
-    setAnswers((current) => ({ ...current, [currentQuestion.id]: answer }));
-    if (questionIndex < visibleQuestions.length - 1) setQuestionIndex((current) => current + 1);
+    const nextAnswers = { ...answers, [currentQuestion.id]: answer };
+    setAnswers(nextAnswers);
+    if (currentQuestion.id === "creditProfile" && typeof answer === "object" && answer !== null && "status" in answer && answer.status === "known") return;
+    const nextVisibleQuestions = getVisibleQuestions(nextAnswers);
+    const nextIndex = nextVisibleQuestions.findIndex((question, index) => index > questionIndex && nextAnswers[question.id] === undefined);
+    if (nextIndex >= 0) setQuestionIndex(nextIndex);
   }
 
   function commitCurrentAnswer() {
     if (!currentQuestion) return;
-    const isNumeric = currentQuestion.inputType === "money" || currentQuestion.inputType === "range";
+    const isNumeric = currentQuestion.inputType === "money" || currentQuestion.inputType === "range" || currentQuestion.inputType === "percentage";
     if (isNumeric) {
       if (numericDraft.trim() === "") return;
-      saveAnswer({ kind: "known", value: Number(numericDraft) });
+      if (currentQuestion.inputType === "range" && numericHighDraft.trim() !== "") {
+        saveAnswer({ kind: "range", low: Number(numericDraft), high: Number(numericHighDraft) });
+      } else {
+        const value = Number(numericDraft) / (currentQuestion.inputType === "percentage" ? 100 : 1);
+        saveAnswer({ kind: "known", value });
+      }
+      return;
+    }
+    if (currentQuestion.id === "creditProfile" && creditScoreDraft.trim() !== "") {
+      saveAnswer({ status: "known", score: { kind: "known", value: Number(creditScoreDraft) } });
       return;
     }
     if (answers[currentQuestion.id] !== undefined) {
@@ -109,11 +126,11 @@ function App() {
           <span>{progress}% complete</span>
         </div>
         <div className="progress-track"><div className="progress-fill" style={{ width: `${progress}%` }} /></div>
-        <QuestionCard question={currentQuestion} value={answers[currentQuestion.id]} numericDraft={numericDraft} onNumericDraftChange={setNumericDraft} onAnswer={saveAnswer} />
+        <QuestionCard question={currentQuestion} value={answers[currentQuestion.id]} numericDraft={numericDraft} numericHighDraft={numericHighDraft} creditScoreDraft={creditScoreDraft} onNumericDraftChange={setNumericDraft} onNumericHighDraftChange={setNumericHighDraft} onCreditScoreDraftChange={setCreditScoreDraft} onAnswer={saveAnswer} />
         <div className="flow-actions">
           <button className="text-button" onClick={goBack}>Back</button>
           {completed ? <button className="primary-button" onClick={openReview}>Review answers</button> : nextQuestion && answers[currentQuestion.id] !== undefined ? <button className="primary-button" onClick={() => setQuestionIndex((current) => Math.min(current + 1, visibleQuestions.length - 1))}>Continue</button> : null}
-          {!completed && ((currentQuestion.inputType === "money" || currentQuestion.inputType === "range") && numericDraft.trim() !== "") ? <button className="primary-button" onClick={commitCurrentAnswer}>Continue</button> : null}
+          {!completed && (((currentQuestion.inputType === "money" || currentQuestion.inputType === "range" || currentQuestion.inputType === "percentage") && numericDraft.trim() !== "") || (currentQuestion.id === "creditProfile" && creditScoreDraft.trim() !== "")) ? <button className="primary-button" onClick={commitCurrentAnswer}>Continue</button> : null}
         </div>
       </section>
     </main>
@@ -134,14 +151,20 @@ function IntroScreen({ onStart }: { readonly onStart: () => void }) {
   </main>;
 }
 
-function QuestionCard({ question, value, numericDraft, onNumericDraftChange, onAnswer }: { readonly question: QuestionDefinition; readonly value: FlowAnswer | undefined; readonly numericDraft: string; readonly onNumericDraftChange: (value: string) => void; readonly onAnswer: (answer: FlowAnswer) => void }) {
+function QuestionCard({ question, value, numericDraft, numericHighDraft, creditScoreDraft, onNumericDraftChange, onNumericHighDraftChange, onCreditScoreDraftChange, onAnswer }: { readonly question: QuestionDefinition; readonly value: FlowAnswer | undefined; readonly numericDraft: string; readonly numericHighDraft: string; readonly creditScoreDraft: string; readonly onNumericDraftChange: (value: string) => void; readonly onNumericHighDraftChange: (value: string) => void; readonly onCreditScoreDraftChange: (value: string) => void; readonly onAnswer: (answer: FlowAnswer) => void }) {
   const options = question.options ?? [];
-  const isNumeric = question.inputType === "money" || question.inputType === "range";
+  const isNumeric = question.inputType === "money" || question.inputType === "range" || question.inputType === "percentage";
   const currentNumeric = numericDraft;
 
   useEffect(() => {
     if (isNumeric && value && typeof value === "object" && "kind" in value && value.kind === "known") onNumericDraftChange(String(value.value));
+    if (isNumeric && value && typeof value === "object" && "kind" in value && value.kind === "range") {
+      onNumericDraftChange(String(value.low));
+      onNumericHighDraftChange(String(value.high));
+    }
     if (isNumeric && (!value || (typeof value === "object" && "kind" in value && value.kind === "unknown"))) onNumericDraftChange("");
+    if (isNumeric && (!value || (typeof value === "object" && "kind" in value && value.kind === "unknown"))) onNumericHighDraftChange("");
+    if (question.id === "creditProfile" && value && typeof value === "object" && "status" in value && value.status === "known" && "kind" in value.score && value.score.kind === "known") onCreditScoreDraftChange(String(value.score.value));
   }, [question.id, value, isNumeric, onNumericDraftChange]);
 
   return <div className="question-card">
@@ -149,11 +172,12 @@ function QuestionCard({ question, value, numericDraft, onNumericDraftChange, onA
     <h1>{question.text}</h1>
     <p className="question-why">{question.whyWeAsk}</p>
     {isNumeric ? <div className="numeric-answer">
-      <label htmlFor={question.id}>Amount in rupees</label>
-      <div className="input-wrap"><span>₹</span><input id={question.id} inputMode="numeric" type="number" min="0" value={currentNumeric} placeholder="Enter an amount" onChange={(event) => onNumericDraftChange(event.target.value)} /></div>
+      <label htmlFor={question.id}>{question.inputType === "range" ? "Enter a minimum and optional maximum" : question.inputType === "percentage" ? "Annual rate as a percentage" : "Amount in rupees"}</label>
+      <div className="range-inputs"><div className="input-wrap"><span>{question.inputType === "percentage" ? "%" : "₹"}</span><input id={question.id} inputMode="decimal" type="number" min="0" step={question.inputType === "percentage" ? "0.01" : "1"} value={currentNumeric} placeholder={question.inputType === "percentage" ? "For example, 12" : "Minimum"} onChange={(event) => onNumericDraftChange(event.target.value)} /></div>{question.inputType === "range" ? <div className="input-wrap"><span>₹</span><input aria-label="Maximum amount in rupees" inputMode="numeric" type="number" min="0" value={numericHighDraft} placeholder="Maximum (optional)" onChange={(event) => onNumericHighDraftChange(event.target.value)} /></div> : null}</div>
       <button className={`unknown-button ${value && typeof value === "object" && "kind" in value && value.kind === "unknown" ? "selected" : ""}`} onClick={() => onAnswer({ kind: "unknown", reason: "Not provided" })}>I don't know this yet</button>
     </div> : <div className="option-list">
       {options.map((option, index) => <button className={`option-button ${sameAnswer(option.value, value) ? "selected" : ""}`} key={`${question.id}-${index}`} onClick={() => onAnswer(option.value)}>{option.label}<span aria-hidden="true">{sameAnswer(option.value, value) ? "✓" : "↗"}</span></button>)}
+      {question.id === "creditProfile" && typeof value === "object" && value !== null && "status" in value && value.status === "known" ? <div className="score-input"><label htmlFor="credit-score">Credit score</label><div className="input-wrap"><input id="credit-score" inputMode="numeric" type="number" min="300" max="900" value={creditScoreDraft} placeholder="For example, 780" onChange={(event) => onCreditScoreDraftChange(event.target.value)} /></div><button className="unknown-button" onClick={() => onAnswer({ status: "unknown", score: { kind: "unknown", reason: "Score not provided" } })}>I know my history, but not the score</button></div> : null}
     </div>}
   </div>;
 }

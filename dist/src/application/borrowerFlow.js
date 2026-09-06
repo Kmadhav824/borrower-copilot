@@ -24,6 +24,9 @@ function businessCollateralIsRelevant(answers) {
 function collateralDetailsAreRelevant(answers) {
     return businessCollateralIsRelevant(answers) && (answers.collateralType === "property" || answers.collateralType === "gold");
 }
+function offerIsAvailable(answers) {
+    return answers.offerAvailable === "yes";
+}
 const coreVisible = () => true;
 export const QUESTION_DEFINITIONS = [
     {
@@ -122,6 +125,32 @@ export const QUESTION_DEFINITIONS = [
         options: [{ value: true, label: "Yes" }, { value: false, label: "No" }, { value: "unknown", label: "I do not know" }],
         visibleWhen: collateralDetailsAreRelevant, targetFields: ["borrower.collateral.unencumbered"], impacts: ["routing", "eligibility", "confidence"],
         whyWeAsk: "A secured route requires the collateral to be available and unencumbered."
+    },
+    {
+        id: "offerAvailable", text: "Do you already have a lender offer to compare?", inputType: "select", requiredness: "adaptive",
+        options: [{ value: "yes", label: "Yes, I have offer details" }, { value: "no", label: "No offer yet" }, { value: "unknown", label: "I am not sure" }],
+        visibleWhen: coreVisible, targetFields: ["offer"], impacts: ["apr", "confidence", "negotiationCard"],
+        whyWeAsk: "A lender's actual fees and rate are needed to estimate all-in APR; without them, we show a rate-only view."
+    },
+    {
+        id: "nominalAnnualRate", text: "What annual interest rate did the lender offer?", inputType: "percentage", requiredness: "adaptive",
+        visibleWhen: offerIsAvailable, targetFields: ["offer.nominalAnnualRate"], impacts: ["apr", "negotiationCard"],
+        whyWeAsk: "The offered rate lets us compare the lender's quote with the modelled fair-rate range."
+    },
+    {
+        id: "processingFee", text: "What processing fee is shown in the offer?", inputType: "money", requiredness: "adaptive",
+        visibleWhen: offerIsAvailable, targetFields: ["offer.processingFee"], impacts: ["apr", "confidence", "negotiationCard"],
+        whyWeAsk: "Upfront fees reduce net disbursal and can increase the all-in APR."
+    },
+    {
+        id: "lenderCollectedThirdPartyCharges", text: "What lender-collected third-party charges are listed?", inputType: "money", requiredness: "adaptive",
+        visibleWhen: offerIsAvailable, targetFields: ["offer.lenderCollectedThirdPartyCharges"], impacts: ["apr", "confidence", "negotiationCard"],
+        whyWeAsk: "Known lender-collected charges belong in the all-in cost comparison."
+    },
+    {
+        id: "applicableKnownTaxes", text: "What applicable taxes or statutory charges are listed?", inputType: "money", requiredness: "adaptive",
+        visibleWhen: offerIsAvailable, targetFields: ["offer.applicableKnownTaxes"], impacts: ["apr", "confidence", "negotiationCard"],
+        whyWeAsk: "Known taxes and statutory charges affect the amount actually disbursed."
     }
 ];
 export function getVisibleQuestions(answers) {
@@ -144,13 +173,14 @@ export function normalizeAnswers(answers) {
     const request = isLoanPurpose(purpose) && resolvedTerms
         ? createLoanRequest(answers, purpose, resolvedTerms)
         : null;
-    return { borrower, request, missingCore };
+    return { borrower, request, offer: createLoanOffer(answers), missingCore };
 }
 export function toAssessmentInput(answers, offer) {
     const normalized = normalizeAnswers(answers);
     if (!normalized.borrower || !normalized.request)
         return null;
-    return { borrower: normalized.borrower, request: normalized.request, ...(offer ? { offer } : {}) };
+    const normalizedOffer = normalized.offer ?? offer;
+    return { borrower: normalized.borrower, request: normalized.request, ...(normalizedOffer ? { offer: normalizedOffer } : {}) };
 }
 function isNumericInput(value) {
     return typeof value === "object" && value !== null && "kind" in value;
@@ -163,6 +193,9 @@ function isLoanTermsAnswer(value) {
 }
 function isLoanPurpose(value) {
     return value === "personal" || value === "wedding" || value === "business" || value === "vehicle" || value === "emergency" || value === "other";
+}
+function isOfferAvailability(value) {
+    return value === "yes" || value === "no" || value === "unknown";
 }
 function resolveLoanTerms(value) {
     if (!isLoanTermsAnswer(value))
@@ -208,5 +241,15 @@ function createLoanRequest(answers, purpose, terms) {
         productIntent: "unsure",
         preferredTenureMonths: terms.preferredTenureMonths,
         rateType: terms.rateType
+    };
+}
+function createLoanOffer(answers) {
+    if (!isOfferAvailability(answers.offerAvailable) || answers.offerAvailable !== "yes")
+        return null;
+    return {
+        nominalAnnualRate: knownOrUnknown(answers.nominalAnnualRate),
+        processingFee: knownOrUnknown(answers.processingFee),
+        lenderCollectedThirdPartyCharges: knownOrUnknown(answers.lenderCollectedThirdPartyCharges),
+        applicableKnownTaxes: knownOrUnknown(answers.applicableKnownTaxes)
     };
 }
