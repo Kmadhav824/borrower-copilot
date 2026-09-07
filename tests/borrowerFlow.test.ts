@@ -50,6 +50,7 @@ test("Priya follows the salaried path and normalizes to a valid assessment input
   assert.equal(getNextQuestion(answers)?.id, "highCostDebtPresent");
   assert.equal(visibleIds(answers).includes("collateralType"), false);
   assert.equal(visibleIds(answers).includes("coApplicantMonthlyIncome"), false);
+  assert.equal(normalized.borrower!.collateral.type, "none");
 });
 
 test("Ravi follows the self-employed business and collateral path", () => {

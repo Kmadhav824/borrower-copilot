@@ -87,6 +87,8 @@ h2 { font-size: 26px; }
 .result-number.lender { border-color: var(--coral); }
 .result-number > strong { display: block; font-family: "Space Grotesk", sans-serif; font-size: clamp(23px, 4vw, 34px); margin: 12px 0; }
 .result-number p, .emi-highlight p, .confidence-copy, .known-copy, .card-intro { color: var(--muted); font-size: 13px; line-height: 1.55; margin: 0; }
+.use-this-number { color: var(--ink); font-size: 14px; font-weight: 600; line-height: 1.5; margin: 14px 0 0; }
+.input-error { color: var(--coral); font-size: 13px; margin: 12px 0 0; }
 .compact-grid { margin: 0; }
 .emi-highlight { background: var(--mint); padding: 22px; }
 .emi-highlight > strong { display: block; font-family: "Space Grotesk", sans-serif; font-size: clamp(30px, 5vw, 44px); margin: 10px 0; }
@@ -131,7 +133,7 @@ h2 { font-size: 26px; }
 .card-footer { border-top: 1px solid #476d64; color: #c9d7ce; display: flex; font-size: 11px; justify-content: space-between; margin-top: 26px; padding-top: 14px; text-transform: capitalize; }
 .negotiation-grid { display: grid; gap: 1px; grid-template-columns: repeat(2, 1fr); margin-top: 22px; }
 .negotiation-grid span { background: var(--mint); color: var(--muted); font-size: 12px; padding: 14px; }
-.negotiation-grid strong { color: var(--ink); display: block; font-size: 16px; margin-top: 7px; text-transform: capitalize; }
+.negotiation-grid strong { color: var(--ink); display: block; font-size: 16px; margin-top: 7px; }
 .empty-state { align-items: center; display: flex; flex-direction: column; justify-content: center; }
 @media (max-width: 640px) {
   .app-shell { padding-left: 18px; padding-right: 18px; }
@@ -144,7 +146,7 @@ h2 { font-size: 26px; }
   .metric-grid { grid-template-columns: 1fr; }
   .result-section { display: block; }
   .result-section-body { margin-top: 16px; }
-  .comparison-grid { grid-template-columns: 1fr; }
+  .comparison-grid, .negotiation-grid { grid-template-columns: 1fr; }
   .card-header { display: block; }
   .card-actions { margin-top: 18px; }
   .card-columns { grid-template-columns: 1fr; }

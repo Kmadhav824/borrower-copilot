@@ -151,16 +151,19 @@ function calculateApr(
   if (!amount) return { status: "unavailable", apr: null, totalRepayment: null, allInCost: null, netDisbursed: null, reasons: [reason("APR_AMOUNT_UNKNOWN", "apr", "caution", "APR_IRR", "APR cannot be estimated until the loan amount is known.", ["request.requestedAmount"])] };
   const tenure = selectedTenure(request, product, rules);
   const feeInputs = offer ? [offer.processingFee, offer.lenderCollectedThirdPartyCharges, offer.applicableKnownTaxes] : [];
-  if (!offer || feeInputs.some((fee) => fee.kind === "unknown")) {
-    return { status: "rateOnly", apr: null, totalRepayment: INR(range(calculateEmi(amount.low, rate.high, tenure) * tenure, calculateEmi(amount.high, rate.low, tenure) * tenure)), allInCost: null, netDisbursed: null, reasons: [reason("APR_FEES_UNKNOWN", "apr", "caution", "APR_IRR", "This is a rate-only cost view. Full APR needs mandatory fee and lender-collected charge information.", ["offer.processingFee", "offer.thirdPartyCharges"])] };
+  if (!offer || offer.nominalAnnualRate.kind === "unknown" || feeInputs.some((fee) => fee.kind === "unknown")) {
+    return { status: "rateOnly", apr: null, totalRepayment: INR(range(calculateEmi(amount.low, rate.high, tenure) * tenure, calculateEmi(amount.high, rate.low, tenure) * tenure)), allInCost: null, netDisbursed: null, reasons: [reason("APR_FEES_UNKNOWN", "apr", "caution", "APR_IRR", "APR and all-in cost cannot be calculated yet. They need the offered rate and mandatory fee information; missing fees are not invented.", ["offer.nominalAnnualRate", "offer.processingFee", "offer.thirdPartyCharges"])] };
   }
   const fees = feeInputs.map(toRange) as NumberRange[];
   const offeredRate = toRange(offer.nominalAnnualRate);
+  if (!offeredRate) {
+    return { status: "rateOnly", apr: null, totalRepayment: INR(range(calculateEmi(amount.low, rate.high, tenure) * tenure, calculateEmi(amount.high, rate.low, tenure) * tenure)), allInCost: null, netDisbursed: null, reasons: [reason("APR_FEES_UNKNOWN", "apr", "caution", "APR_IRR", "APR and all-in cost cannot be calculated yet. They need the offered rate and mandatory fee information; missing fees are not invented.", ["offer.nominalAnnualRate"])] };
+  }
   const feeLow = fees.reduce((sum, fee) => sum + fee.low, 0);
   const feeHigh = fees.reduce((sum, fee) => sum + fee.high, 0);
   const scenarios = [
-    { principal: amount.low, rate: offeredRate?.low ?? rate.low, fees: feeLow },
-    { principal: amount.high, rate: offeredRate?.high ?? rate.high, fees: feeHigh }
+    { principal: amount.low, rate: offeredRate.low, fees: feeLow },
+    { principal: amount.high, rate: offeredRate.high, fees: feeHigh }
   ];
   const aprs: number[] = [];
   const repayments: number[] = [];

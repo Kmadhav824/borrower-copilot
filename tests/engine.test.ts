@@ -110,6 +110,14 @@ test("unknown mandatory fees return rate-only cost rather than fabricated APR", 
   assert.ok(result.reasons.some((item) => item.id === "APR_FEES_UNKNOWN"));
 });
 
+test("unknown offered rate does not borrow the modelled fair rate as APR", () => {
+  const unknownRateOffer: LoanOfferInputs = { ...offer, nominalAnnualRate: unknown() };
+  const result = assessBorrower({ borrower: profile(), request: request(500_000, "personal", "personalLoan"), offer: unknownRateOffer });
+  assert.equal(result.apr.status, "rateOnly");
+  assert.equal(result.apr.apr, null);
+  assert.equal(result.apr.allInCost, null);
+});
+
 test("rules are configurable and the safety cap is not embedded in UI logic", () => {
   const input: AssessmentInput = { borrower: profile(), request: request(800_000, "wedding", "personalLoan"), offer };
   const baseline = assessBorrower(input);

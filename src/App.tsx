@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { assessBorrower } from "./domain/borrower/engine.js";
-import type { AssessmentResult, MonetaryRange, NumericInput } from "./domain/borrower/types.js";
+import type { AssessmentResult, MonetaryRange } from "./domain/borrower/types.js";
 import {
   getNextQuestion, getVisibleQuestions, toAssessmentInput,
   type FlowAnswer, type FlowAnswers, type QuestionDefinition
@@ -16,6 +16,25 @@ function formatMoney(value: MonetaryRange | null): string {
 
 function formatRate(low: number, high: number): string {
   return low === high ? percent.format(low) : `${percent.format(low)} - ${percent.format(high)}`;
+}
+
+function formatApr(assessment: AssessmentResult): string {
+  if (assessment.apr.apr) return formatRate(assessment.apr.apr.low, assessment.apr.apr.high);
+  return "Cannot be calculated yet";
+}
+
+const productLabels: Record<AssessmentResult["negotiationCard"]["product"], string> = {
+  personalLoan: "Personal loan",
+  businessLoan: "Business loan",
+  loanAgainstProperty: "Loan against property",
+  goldLoan: "Gold loan",
+  twoWheelerLoan: "Two-wheeler loan"
+};
+
+function parseNonNegativeNumber(raw: string): number | null {
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 0) return null;
+  return value;
 }
 
 function labelForAnswer(answer: FlowAnswer | undefined): string {
@@ -39,6 +58,7 @@ function App() {
   const [numericHighDraft, setNumericHighDraft] = useState("");
   const [creditScoreDraft, setCreditScoreDraft] = useState("");
   const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [inputError, setInputError] = useState<string | null>(null);
 
   const visibleQuestions = getVisibleQuestions(answers);
   const currentQuestion = visibleQuestions[questionIndex] ?? null;
@@ -54,6 +74,7 @@ function App() {
     setNumericHighDraft("");
     setCreditScoreDraft("");
     setSubmissionError(null);
+    setInputError(null);
     setScreen("questions");
   }
 
@@ -61,6 +82,7 @@ function App() {
     if (!currentQuestion) return;
     const nextAnswers = { ...answers, [currentQuestion.id]: answer };
     setAnswers(nextAnswers);
+    setInputError(null);
     if (currentQuestion.id === "creditProfile" && typeof answer === "object" && answer !== null && "status" in answer && answer.status === "known" && answer.score.kind === "unknown") return;
     const nextVisibleQuestions = getVisibleQuestions(nextAnswers);
     const nextIndex = nextVisibleQuestions.findIndex((question, index) => index > questionIndex && nextAnswers[question.id] === undefined);
@@ -72,16 +94,31 @@ function App() {
     const isNumeric = currentQuestion.inputType === "money" || currentQuestion.inputType === "range" || currentQuestion.inputType === "percentage";
     if (isNumeric) {
       if (numericDraft.trim() === "") return;
+      const low = parseNonNegativeNumber(numericDraft);
+      if (low === null) {
+        setInputError("Enter a valid number, or choose I don't know this yet.");
+        return;
+      }
       if (currentQuestion.inputType === "range" && numericHighDraft.trim() !== "") {
-        saveAnswer({ kind: "range", low: Number(numericDraft), high: Number(numericHighDraft) });
+        const high = parseNonNegativeNumber(numericHighDraft);
+        if (high === null) {
+          setInputError("Enter a valid maximum, or leave it blank.");
+          return;
+        }
+        saveAnswer({ kind: "range", low: Math.min(low, high), high: Math.max(low, high) });
       } else {
-        const value = Number(numericDraft) / (currentQuestion.inputType === "percentage" ? 100 : 1);
+        const value = currentQuestion.inputType === "percentage" ? low / 100 : low;
         saveAnswer({ kind: "known", value });
       }
       return;
     }
     if (currentQuestion.id === "creditProfile" && creditScoreDraft.trim() !== "") {
-      saveAnswer({ status: "known", score: { kind: "known", value: Number(creditScoreDraft) } });
+      const score = parseNonNegativeNumber(creditScoreDraft);
+      if (score === null) {
+        setInputError("Enter a valid credit score, or say you do not know it.");
+        return;
+      }
+      saveAnswer({ status: "known", score: { kind: "known", value: score } });
       return;
     }
     if (answers[currentQuestion.id] !== undefined) {
@@ -127,6 +164,7 @@ function App() {
         </div>
         <div className="progress-track"><div className="progress-fill" style={{ width: `${progress}%` }} /></div>
         <QuestionCard question={currentQuestion} value={answers[currentQuestion.id]} numericDraft={numericDraft} numericHighDraft={numericHighDraft} creditScoreDraft={creditScoreDraft} onNumericDraftChange={setNumericDraft} onNumericHighDraftChange={setNumericHighDraft} onCreditScoreDraftChange={setCreditScoreDraft} onAnswer={saveAnswer} />
+        {inputError ? <p className="input-error" role="alert">{inputError}</p> : null}
         <div className="flow-actions">
           <button className="text-button" onClick={goBack}>Back</button>
           {completed ? <button className="primary-button" onClick={openReview}>Review answers</button> : nextQuestion && answers[currentQuestion.id] !== undefined && currentQuestion.inputType !== "money" && currentQuestion.inputType !== "range" && currentQuestion.inputType !== "percentage" && currentQuestion.id !== "creditProfile" ? <button className="primary-button" onClick={() => setQuestionIndex((current) => Math.min(current + 1, visibleQuestions.length - 1))}>Continue</button> : null}
@@ -215,13 +253,14 @@ function ResultsScreen({ assessment, onRestart }: { readonly assessment: Assessm
           <ResultNumber title="Likely lender sanction" value={formatMoney(assessment.eligibility.likelySanction)} explanation={sanctionReason?.message ?? "This estimate uses income, existing EMIs, product route and lender-cap assumptions."} tone="lender" />
           <ResultNumber title="Borrower-safe amount" value={formatMoney(assessment.affordability.safeBorrowing)} explanation={affordabilityReason?.message ?? "This ceiling protects essential expenses, existing EMIs and a monthly buffer."} tone="safe" />
         </div>
+        <p className="use-this-number">Use the borrower-safe amount as your ceiling. The lender range is a possible sanction estimate, not a recommendation to borrow that much.</p>
       </ResultSection>
 
       <ResultSection eyebrow="Rate and cost" title="A fair range to negotiate">
         <div className="metric-grid compact-grid">
           <Metric title="Fair interest rate" value={formatRate(assessment.fairRate.low, assessment.fairRate.high)} detail={rateReason?.message ?? "This range reflects the available repayment and credit evidence."} />
-          <Metric title="All-in APR" value={assessment.apr.apr ? formatRate(assessment.apr.apr.low, assessment.apr.apr.high) : assessment.apr.status === "rateOnly" ? "Rate-only view" : "Not available"} detail={aprReason?.message ?? "APR uses net disbursal and scheduled repayments."} />
-          <Metric title="All-in borrowing cost" value={formatMoney(assessment.apr.allInCost)} detail="Total repayments minus net amount disbursed, including known fees." />
+          <Metric title="All-in APR" value={formatApr(assessment)} detail={aprReason?.message ?? "APR uses net disbursal and scheduled repayments."} />
+          <Metric title="All-in borrowing cost" value={formatMoney(assessment.apr.allInCost)} detail={assessment.apr.allInCost ? "Total repayments minus net amount disbursed, including known fees." : "All-in cost cannot be calculated until the offered rate and mandatory fees are known."} />
         </div>
       </ResultSection>
 
@@ -240,18 +279,23 @@ function ResultsScreen({ assessment, onRestart }: { readonly assessment: Assessm
         {unknowns.length === 0 ? <p className="known-copy">No caution or blocking information was raised by the assessment.</p> : <div className="unknown-list">{unknowns.map((item) => <div key={item.id}><strong>{item.message}</strong><small>{item.inputReferences.join(" · ")}</small></div>)}</div>}
       </ResultSection>
 
-      <section className="negotiation-card" id="negotiation-card"><div className="card-header"><div><div className="section-label">Negotiation card</div><h2>Take these numbers to the lender.</h2></div><div className="card-actions"><button className="card-action" onClick={() => window.print()}>Print / PDF</button><button className="card-action" onClick={() => shareNegotiationCard(assessment)}>Share</button></div></div><p className="card-intro">A concise borrower brief. Values marked modelled are estimates from your answers, not lender offers.</p><div className="modelled-label">Modelled borrower position</div><div className="negotiation-grid"><span>Product<strong>{assessment.negotiationCard.product}</strong></span><span>Recommended amount<strong>{formatMoney(assessment.negotiationCard.safeBorrowing)}</strong></span><span>Safe EMI ceiling<strong>{assessment.negotiationCard.recommendedMaximumEmi === null ? "Not available" : money.format(assessment.negotiationCard.recommendedMaximumEmi)}</strong></span><span>Fair rate range<strong>{formatRate(assessment.negotiationCard.fairRate.low, assessment.negotiationCard.fairRate.high)}</strong></span><span>All-in cost<strong>{formatMoney(assessment.apr.allInCost)}</strong></span><span>APR<strong>{assessment.apr.apr ? formatRate(assessment.apr.apr.low, assessment.apr.apr.high) : "Rate-only view"}</strong></span><span>Preferred tenure<strong>{assessment.negotiationCard.suggestedTenureMonths ? `${assessment.negotiationCard.suggestedTenureMonths} months` : "Not available"}</strong></span><span>Stress result<strong>{assessment.stress.passes === true ? "Passes" : assessment.stress.passes === false ? "Does not pass" : "Unknown"}</strong></span></div><div className="lender-boundary"><strong>Lender offer to confirm</strong><span>Ask the lender to provide the sanctioned amount, final rate, fees, APR, EMI, tenure, and any insurance or third-party charges in writing.</span></div><div className="card-columns"><CardList title="Key reasons" items={assessment.negotiationCard.keyReasons.slice(0, 4).map((item) => item.message)} /><CardList title="Ask for / negotiate" items={negotiationPoints} /><CardList title="Unknowns and cautions" items={unknownMessages.length > 0 ? unknownMessages : ["No additional caution was raised by the assessment."]} /><CardList title="Assumptions and limitations" items={assumptions} /></div><footer className="card-footer"><span>{assessment.confidence} confidence</span><span>Borrower decision aid, not lender approval</span></footer></section>
+      <section className="negotiation-card" id="negotiation-card"><div className="card-header"><div><div className="section-label">Negotiation card</div><h2>Take these numbers to the lender.</h2></div><div className="card-actions"><button className="card-action" onClick={() => window.print()}>Print / PDF</button><button className="card-action" onClick={() => shareNegotiationCard(assessment)}>Share</button></div></div><p className="card-intro">A concise borrower brief. Values marked modelled are estimates from your answers, not lender offers.</p><div className="modelled-label">Modelled borrower position</div><div className="negotiation-grid"><span>Product<strong>{productLabels[assessment.negotiationCard.product]}</strong></span><span>Requested amount<strong>{formatMoney(assessment.negotiationCard.requestedAmount)}</strong></span><span>Likely lender range<strong>{formatMoney(assessment.negotiationCard.likelyLenderSanction)}</strong></span><span>Recommended safe amount<strong>{formatMoney(assessment.negotiationCard.safeBorrowing)}</strong></span><span>Safe EMI ceiling<strong>{assessment.negotiationCard.recommendedMaximumEmi === null ? "Not available" : money.format(assessment.negotiationCard.recommendedMaximumEmi)}</strong></span><span>Fair rate range<strong>{formatRate(assessment.negotiationCard.fairRate.low, assessment.negotiationCard.fairRate.high)}</strong></span><span>All-in cost<strong>{formatMoney(assessment.apr.allInCost)}</strong></span><span>APR<strong>{formatApr(assessment)}</strong></span><span>Preferred tenure<strong>{assessment.negotiationCard.suggestedTenureMonths ? `${assessment.negotiationCard.suggestedTenureMonths} months` : "Not available"}</strong></span><span>Stress result<strong>{assessment.stress.passes === true ? "Passes" : assessment.stress.passes === false ? "Does not pass" : "Unknown"}</strong></span></div><div className="lender-boundary"><strong>Lender offer to confirm</strong><span>Ask the lender to provide the sanctioned amount, final rate, fees, APR, EMI, tenure, and any insurance or third-party charges in writing.</span></div><div className="card-columns"><CardList title="Key reasons" items={assessment.negotiationCard.keyReasons.slice(0, 4).map((item) => item.message)} /><CardList title="Ask for / negotiate" items={negotiationPoints} /><CardList title="Unknowns and cautions" items={unknownMessages.length > 0 ? unknownMessages : ["No additional caution was raised by the assessment."]} /><CardList title="Assumptions and limitations" items={assumptions} /></div><footer className="card-footer"><span>{assessment.confidence} confidence</span><span>Borrower decision aid, not lender approval</span></footer></section>
       <button className="secondary-button" onClick={onRestart}>Start a new assessment</button>
     </section>
   </main>;
 }
 
 function buildNegotiationPoints(assessment: AssessmentResult): readonly string[] {
-  const points = ["Keep the new EMI at or below the recommended safe ceiling."];
+  if (assessment.verdict === "dontBorrow") {
+    return [
+      "Do not add a new loan until existing repayment stress is resolved.",
+      "If you still speak with a lender, request a complete written fee and APR schedule rather than a headline rate."
+    ];
+  }
+  const points = ["Keep the new EMI at or below the recommended safe ceiling.", "Use the borrower-safe amount, not the likely lender-sanction range, as your borrowing ceiling."];
   if (assessment.fairRate.low > 0) points.push(`Ask whether the lender can offer a rate within ${formatRate(assessment.fairRate.low, assessment.fairRate.high)}.`);
   if (assessment.apr.status !== "estimated") points.push("Request the complete fee schedule before comparing APR or total cost.");
   if (assessment.negotiationCard.suggestedTenureMonths) points.push(`Compare the ${assessment.negotiationCard.suggestedTenureMonths}-month option against shorter tenures before accepting a lower EMI.`);
-  if (assessment.eligibility.likelySanction && assessment.affordability.safeBorrowing) points.push("Do not treat the lender's possible sanction range as a safe borrowing recommendation.");
   return points;
 }
 

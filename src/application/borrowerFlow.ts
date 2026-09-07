@@ -210,7 +210,7 @@ export const QUESTION_DEFINITIONS: readonly QuestionDefinition[] = [
     id: "offerAvailable", text: "Do you already have a lender offer to compare?", inputType: "select", requiredness: "adaptive",
     options: [{ value: "yes", label: "Yes, I have offer details" }, { value: "no", label: "No offer yet" }, { value: "unknown", label: "I am not sure" }],
     visibleWhen: coreVisible, targetFields: ["offer"], impacts: ["apr", "confidence", "negotiationCard"],
-    whyWeAsk: "A lender's actual fees and rate are needed to estimate all-in APR; without them, we show a rate-only view."
+    whyWeAsk: "A lender's actual fees and rate are needed to estimate all-in APR; without them, APR cannot be calculated yet."
   },
   {
     id: "nominalAnnualRate", text: "What annual interest rate did the lender offer?", inputType: "percentage", requiredness: "adaptive",
@@ -300,7 +300,9 @@ function resolveLoanTerms(value: FlowAnswer | undefined): LoanTermsAnswer | null
 
 function createBorrowerProfile(answers: FlowAnswers, incomeType: IncomeType): BorrowerProfile {
   const credit = isCreditScoreAnswer(answers.creditProfile) ? answers.creditProfile : { status: "unknown" as const, score: { kind: "unknown" as const, reason: "Not provided" } };
-  const collateralType = answers.collateralType === "property" || answers.collateralType === "gold" || answers.collateralType === "none" ? answers.collateralType : "unknown";
+  const collateralType = answers.collateralType === "property" || answers.collateralType === "gold" || answers.collateralType === "none" || answers.collateralType === "unknown"
+    ? answers.collateralType
+    : "none";
   return {
     age: { kind: "unknown", reason: "Not collected by the assessment flow" },
     incomeType,

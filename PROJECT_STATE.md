@@ -2,7 +2,7 @@
 
 ## Snapshot
 
-This repository currently contains the deterministic TypeScript financial-assessment core, a React-independent adaptive question-flow/profile-normalization layer, and a minimal React/Vite web application for Borrower Copilot. Local run documentation is still pending.
+This repository contains the deterministic TypeScript financial-assessment core, a React-independent adaptive question-flow/profile-normalization layer, and a minimal React/Vite web application prepared for submission. The four assignment deliverables are present at the repository root: the working app, `RULES.md`, `RUN_THROUGHS.md`, and `WALKTHROUGH.md`; `README.md` provides local setup and testing instructions.
 
 The product goal is a borrower-first assessment for Indian borrowers that distinguishes likely lender sanction from safe borrower affordability and ends with an explainable Negotiation Card.
 
@@ -62,6 +62,8 @@ Results keep lender sanction separate from safe affordability and show the fair-
 
 The questionnaire now supports two-ended numeric ranges with an optional maximum and collects a numeric credit score when the borrower says they know it. Adaptive branch answers advance to the next unanswered question after visibility changes. An optional lender-offer branch collects the offered rate and known fees/taxes into the existing APR input contract; borrowers can skip it, and unknown fee values remain rate-only.
 
+The Negotiation Card supports print/PDF and share/copy fallback behavior. The final UI polish pass fixed silent sharing failures and duplicate Continue behavior around numeric credit-score entry.
+
 ## Verified Behavior
 
 The current test suite covers:
@@ -88,33 +90,52 @@ The current test suite covers:
 - Undecided repayment terms producing a results assessment
 - Unknown numeric core inputs producing a needs-information result
 - Unknown routing categories remaining blocked rather than coerced
+- Complete rules and assumptions documented in `RULES.md`
+- Local setup, testing, architecture, coverage, and limitations documented in `README.md`
+- Share/copy fallback and credit-score navigation manually smoke-tested
+- Exact current outputs and assumptions documented for Priya, Ravi, and Anita in `RUN_THROUGHS.md`
+- Five-minute written product walkthrough documented in `WALKTHROUGH.md`
 
 Latest verification:
 
 ```text
 npm test
 24 tests passed
+TypeScript build passed (via npm test)
+Vite production build passed
+git diff --check passed
 ```
 
 `npm test` runs `tsc -p tsconfig.json` followed by the compiled Node test suite.
 
+Assignment deliverables at the repository root:
+
+- Working application (React/Vite)
+- `RULES.md`
+- `RUN_THROUGHS.md` (Priya, Ravi, Anita from current engine/flow outputs)
+- `WALKTHROUGH.md`
+- `README.md` for local setup (supporting, not one of the four named assignment artifacts)
+
 ## Not Yet Implemented
 
-The following assignment requirements remain open:
+The following limitations remain, but do not block submission:
 
-- Automated browser-level coverage beyond manual smoke tests
-- Complete persona presets or reproducible browser fixtures for Priya, Ravi, and Anita
-- `RULES.md` documenting each meaningful rule, rationale, source, and limitation
-- `README.md` with setup and run instructions under five minutes
-- Browser-level flow verification
+- Automated browser-level coverage beyond the completed manual smoke tests
+- Complete automated persona fixtures for Priya, Ravi, and Anita
+- Live lender/bureau integrations and production underwriting validation
 
 The current repository has no backend, database, authentication, integrations, or other unnecessary infrastructure.
 
 ## Recommended Next Work
 
-1. Document the configured rules and assumptions in `RULES.md`.
-2. Add README setup instructions and browser-level tests for Priya, Ravi, and Anita.
-3. Expand result explanations and Negotiation Card details as the assignment requires.
+1. Refresh lender/product market-rate sources before production use.
+2. Broaden product coverage and offer comparison.
+3. Add more comprehensive validation, including browser automation for the three personas.
+4. Add production-grade privacy and data-handling infrastructure if the product leaves take-home scope.
+
+## Submission Status
+
+Submission-ready for the assignment scope if the verification commands in this snapshot still pass. The four assignment deliverables are present. Remaining limitations are documented rather than hidden.
 
 ## Guardrails
 
